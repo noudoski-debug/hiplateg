@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hi Plateg — Защищенная Платежная Панель & Шлюз нового поколения</title>
+  
+  <!-- Tailwind CSS & Шрифты -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            cyberDark: '#070a13',
+            cyberCard: 'rgba(15, 23, 42, 0.7)',
+            neonEmerald: '#10b981',
+            neonCyan: '#06b6d4',
+            neonIndigo: '#6366f1'
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Библиотека для генерации настоящих динамических QR кодов -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="bg-[#070a13] text-slate-100 min-h-screen relative antialiased selection:bg-cyan-500 selection:text-black">
+
+  <!-- Градиентные фоны -->
+  <div class="cyber-bg"></div>
+  <div class="cyber-grid"></div>
+
+  <!-- Контейнер всплывающих уведомлений -->
+  <div id="toast-container" class="fixed top-6 right-6 z-[9999] flex flex-col gap-3 pointer-events-none w-80 sm:w-96"></div>
+
+  <!-- ========================================================================= -->
+  <!-- ЭКРАН АВТОРИЗАЦИИ И РЕГИСТРАЦИИ -->
+  <!-- ========================================================================= -->
+  <div id="auth-screen" class="min-h-screen flex items-center justify-center p-4">
+    <div class="w-full max-w-md glass-panel p-8 relative overflow-hidden border border-white/10 shadow-2xl">
+      <div class="absolute -top-24 -right-24 w-48 h-48 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none"></div>
+      <div class="absolute -bottom-24 -left-24 w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+      <!-- Логотип -->
+      <div class="text-center mb-8">
+        <div class="inline-flex items-center gap-3 justify-center mb-3">
+          <div class="w-12 h-12 rounded-2xl bg-gradient-to-tr from-indigo-600 via-cyan-500 to-emerald-400 p-0.5 shadow-lg shadow-cyan-500/20">
+            <div class="w-full h-full bg-[#070a13] rounded-[14px] flex items-center justify-center">
+              <i class="fa-solid fa-bolt-lightning text-cyan-400 text-2xl"></i>
+            </div>
+          </div>
+          <span class="text-3xl font-extrabold tracking-tight">Hi <span class="gradient-text-emerald">Plateg</span></span>
+        </div>
+        <p class="text-xs text-slate-400 uppercase tracking-widest font-mono">FINTECH BILLING & GATEWAY V2.4</p>
+      </div>
+
+      <!-- Быстрый вход для тестирования -->
+      <div class="mb-6 p-3 bg-slate-900/80 rounded-xl border border-white/5">
+        <div class="text-xs text-slate-400 mb-2 flex items-center justify-between font-mono">
+          <span><i class="fa-solid fa-key text-amber-400 mr-1"></i> Быстрый тестовый вход:</span>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <button id="quick-login-merchant" type="button" class="px-2.5 py-1.5 text-xs bg-indigo-950/70 hover:bg-indigo-900 border border-indigo-500/30 text-indigo-300 rounded-lg font-medium transition flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-store"></i> Мерчант
+          </button>
+          <button id="quick-login-admin" type="button" class="px-2.5 py-1.5 text-xs bg-rose-950/70 hover:bg-rose-900 border border-rose-500/30 text-rose-300 rounded-lg font-medium transition flex items-center justify-center gap-1.5">
+            <i class="fa-solid fa-shield-halved"></i> Админ
+          </button>
+        </div>
+      </div>
+
+      <!-- Вкладки Вход / Регистрация -->
+      <div class="flex p-1 bg-slate-900/90 rounded-xl border border-white/5 mb-6">
+        <button id="tab-btn-login" class="flex-1 py-2 text-sm font-semibold rounded-lg bg-indigo-600 text-white transition">Вход</button>
+        <button id="tab-btn-register" class="flex-1 py-2 text-sm font-semibold rounded-lg text-slate-400 hover:text-white transition">Регистрация</button>
+      </div>
+
+      <!-- Форма входа -->
+      <form id="form-login" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Email мерчанта / админа</label>
+          <div class="relative">
+            <i class="fa-regular fa-envelope absolute left-3.5 top-3.5 text-slate-400 text-sm"></i>
+            <input id="login-email" type="email" required placeholder="merchant@store.ru" class="w-full cyber-input pl-10 text-sm" value="merchant@store.ru">
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Пароль</label>
+          <div class="relative">
+            <i class="fa-solid fa-lock absolute left-3.5 top-3.5 text-slate-400 text-sm"></i>
+            <input id="login-password" type="password" required placeholder="••••••••" class="w-full cyber-input pl-10 text-sm" value="merchant123">
+          </div>
+        </div>
+
+        <div id="2fa-input-container" class="hidden">
+          <label class="block text-xs font-semibold text-cyan-400 mb-1">
+            <i class="fa-solid fa-shield-check mr-1"></i> Код двухфакторной аутентификации (2FA)
+          </label>
+          <input id="login-2fa-code" type="text" maxlength="6" placeholder="123456" class="w-full cyber-input text-center font-mono tracking-widest text-lg font-bold">
+        </div>
+
+        <button type="submit" class="w-full py-3 rounded-xl btn-cyber-primary text-sm font-bold flex items-center justify-center gap-2 mt-2">
+          <span>Войти в систему</span>
+          <i class="fa-solid fa-arrow-right"></i>
+        </button>
+      </form>
+
+      <!-- Форма регистрации -->
+      <form id="form-register" class="space-y-4 hidden">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Название проекта / Магазина</label>
+          <div class="relative">
+            <i class="fa-solid fa-shop absolute left-3.5 top-3.5 text-slate-400 text-sm"></i>
+            <input id="reg-name" type="text" required placeholder="Например: CyberTech Digital" class="w-full cyber-input pl-10 text-sm">
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Рабочий Email</label>
+          <div class="relative">
+            <i class="fa-regular fa-envelope absolute left-3.5 top-3.5 text-slate-400 text-sm"></i>
+            <input id="reg-email" type="email" required placeholder="billing@project.io" class="w-full cyber-input pl-10 text-sm">
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Пароль (мин. 6 символов)</label>
+          <div class="relative">
+            <i class="fa-solid fa-lock absolute left-3.5 top-3.5 text-slate-400 text-sm"></i>
+            <input id="reg-password" type="password" required placeholder="••••••••" class="w-full cyber-input pl-10 text-sm">
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Основная валюта расчетов</label>
+          <select id="reg-currency" class="w-full cyber-input text-sm">
+            <option value="RUB">RUB — Российский рубль (₽)</option>
+            <option value="USDT">USDT — Tether (TRC-20)</option>
+            <option value="USD">USD — Доллар США ($)</option>
+            <option value="EUR">EUR — Евро (€)</option>
+          </select>
+        </div>
+
+        <button type="submit" class="w-full py-3 rounded-xl btn-cyber-emerald text-sm font-bold flex items-center justify-center gap-2 mt-2">
+          <span>Создать аккаунт мерчанта</span>
+          <i class="fa-solid fa-sparkles"></i>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- ГЛАВНАЯ ПАНЕЛЬ ПРИЛОЖЕНИЯ (DASHBOARD + ADMIN PANEL) -->
+  <!-- ========================================================================= -->
+  <div id="app-screen" class="hidden min-h-screen flex flex-col">
+
+    <!-- ВЕРХНЯЯ НАВИГАЦИОННАЯ ШАПКА -->
+    <header class="h-16 border-b border-white/10 bg-[#070a13]/80 backdrop-blur-md sticky top-0 z-50 px-4 sm:px-8 flex items-center justify-between">
+      <div class="flex items-center gap-4">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-500 via-cyan-400 to-emerald-400 p-0.5 shadow-md shadow-cyan-500/20">
+            <div class="w-full h-full bg-[#070a13] rounded-[10px] flex items-center justify-center">
+              <i class="fa-solid fa-bolt text-cyan-400 text-sm"></i>
+            </div>
+          </div>
+          <div>
+            <span class="font-extrabold text-lg tracking-tight">Hi <span class="gradient-text-emerald">Plateg</span></span>
+          </div>
+        </div>
+        <span class="hidden md:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 pulse-indicator"></span> SECURE GATEWAY V2.4
+        </span>
+      </div>
+
+      <div class="flex items-center gap-4">
+        <!-- Кнопка быстрого создания платежа -->
+        <button onclick="document.getElementById('modal-create-invoice').classList.remove('hidden')" class="btn-cyber-primary px-3.5 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-2">
+          <i class="fa-solid fa-plus"></i>
+          <span class="hidden sm:inline">Создать счет</span>
+        </button>
+
+        <!-- Баланс мерчанта -->
+        <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-900/90 border border-white/10">
+          <span class="text-xs text-slate-400">Баланс:</span>
+          <span id="user-balance-badge" class="font-mono font-bold text-sm text-emerald-400">0.00 ₽</span>
+        </div>
+
+        <!-- Профиль и Роль -->
+        <div class="flex items-center gap-3 pl-2 border-l border-white/10">
+          <div class="text-right hidden sm:block">
+            <div class="text-xs font-bold text-slate-200" id="user-display-name">Мерчант</div>
+            <div class="text-[11px] text-slate-400 font-mono truncate max-w-[130px]" id="user-email">email@domain.ru</div>
+          </div>
+          <span id="user-role-badge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/40">MERCHANT</span>
+          <button id="btn-logout" class="w-8 h-8 rounded-lg bg-slate-800/80 hover:bg-rose-950/60 hover:text-rose-400 text-slate-400 flex items-center justify-center transition" title="Выход из аккаунта">
+            <i class="fa-solid fa-arrow-right-from-bracket text-xs"></i>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- ОСНОВНОЙ КОНТЕНТ С САЙДБАРОМ -->
+    <div class="flex-1 flex">
+
+      <!-- ЛЕВЫЙ САЙДБАР МЕНЮ -->
+      <aside class="w-64 border-r border-white/10 bg-[#070a13]/60 backdrop-blur-md p-4 flex flex-col justify-between hidden lg:flex">
+        <div class="space-y-6">
+
+          <!-- Раздел Мерчанта -->
+          <div>
+            <div class="text-[10px] uppercase font-mono font-bold text-slate-400 px-3 mb-2 tracking-wider">Кабинет мерчанта</div>
+            <nav class="space-y-1">
+              <a href="#" data-tab-target="overview" class="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition border border-transparent bg-indigo-600/20 text-cyan-400 border-cyan-500/50">
+                <i class="fa-solid fa-chart-line w-4"></i> Обзор и Аналитика
+              </a>
+              <a href="#" data-tab-target="transactions" class="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition border border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/50">
+                <i class="fa-solid fa-receipt w-4"></i> Транзакции & Счета
+              </a>
+              <a href="#" data-tab-target="checkout-demo" class="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition border border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/50">
+                <i class="fa-solid fa-credit-card w-4"></i> Страница оплаты
+              </a>
+              <a href="#" data-tab-target="payout" class="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition border border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/50">
+                <i class="fa-solid fa-paper-plane w-4"></i> Вывод средств
+              </a>
+              <a href="#" data-tab-target="api" class="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition border border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/50">
+                <i class="fa-solid fa-code w-4"></i> API & Вебхуки
+              </a>
+              <a href="#" data-tab-target="security" class="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition border border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/50">
+                <i class="fa-solid fa-shield-halved w-4"></i> Безопасность (2FA)
+              </a>
+            </nav>
+          </div>
+
+          <!-- Раздел Администратора (Скрыт для обычных пользователей) -->
+          <div class="admin-only hidden pt-4 border-t border-white/10">
+            <div class="text-[10px] uppercase font-mono font-bold text-rose-400 px-3 mb-2 tracking-wider flex items-center justify-between">
+              <span>Панель Администратора</span>
+              <i class="fa-solid fa-lock text-rose-500"></i>
+            </div>
+            <nav class="space-y-1">
+              <a href="#" data-tab-target="admin-overview" class="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition border border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/50">
+                <i class="fa-solid fa-gauge-high w-4 text-rose-400"></i> Обзор платформы
+              </a>
+              <a href="#" data-tab-target="admin-users" class="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition border border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/50">
+                <i class="fa-solid fa-users-gear w-4 text-rose-400"></i> Все мерчанты
+              </a>
+              <a href="#" data-tab-target="admin-commissions" class="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition border border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/50">
+                <i class="fa-solid fa-percent w-4 text-rose-400"></i> Управление комиссиями
+              </a>
+              <a href="#" data-tab-target="admin-gateways" class="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition border border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/50">
+                <i class="fa-solid fa-building-columns w-4 text-rose-400"></i> Шлюзы & Реквизиты
+              </a>
+              <a href="#" data-tab-target="admin-settings" class="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition border border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/50">
+                <i class="fa-solid fa-sliders w-4 text-rose-400"></i> Настройки шлюза
+              </a>
+              <a href="#" data-tab-target="admin-logs" class="flex items-center gap-3 px-3 py-2 rounded-xl text-sm font-medium transition border border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/50">
+                <i class="fa-solid fa-list-check w-4 text-rose-400"></i> Журнал аудита
+              </a>
+            </nav>
+          </div>
+
+        </div>
+
+        <!-- Подвал сайдбара -->
+        <div class="p-3 bg-slate-900/60 rounded-xl border border-white/5 text-xs text-slate-400">
+          <div class="flex items-center justify-between mb-1">
+            <span>Антифрод:</span>
+            <span class="text-emerald-400 font-bold font-mono">АКТИВЕН</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span>Шифрование:</span>
+            <span class="text-cyan-400 font-mono">AES-256 GCM</span>
+          </div>
+        </div>
+      </aside>
+
+      <!-- ЦЕНТРАЛЬНАЯ РАБОЧАЯ ОБЛАСТЬ -->
+      <main class="flex-1 p-4 sm:p-8 overflow-y-auto max-w-7xl mx-auto w-full">
+
+        <!-- =============================================================== -->
+        <!-- ВКЛАДКА 1: ОБЗОР И ДАШБОРД МЕРЧАНТА -->
+        <!-- =============================================================== -->
+        <section id="tab-overview" class="tab-content space-y-6">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h1 class="text-2xl font-bold tracking-tight text-white">Дашборд мерчанта</h1>
+              <p class="text-xs text-slate-400 mt-1">Финансовая статистика, мониторинг транзакций и конверсий в реальном времени</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button onclick="loadData(); showToast('Данные обновлены!');" class="btn-cyber-outline px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5">
+                <i class="fa-solid fa-rotate"></i> Обновить
+              </button>
+            </div>
+          </div>
+
+          <!-- Сетка карточек метрик -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="glass-panel p-5 glass-glow-cyan">
+              <div class="flex items-center justify-between text-slate-400 text-xs mb-3">
+                <span>Общий оборот</span>
+                <div class="w-8 h-8 rounded-lg bg-cyan-500/10 text-cyan-400 flex items-center justify-center">
+                  <i class="fa-solid fa-chart-column"></i>
+                </div>
+              </div>
+              <div id="stat-turnover" class="text-2xl font-black font-mono text-white">0.00 ₽</div>
+              <div class="text-[11px] text-emerald-400 mt-2 flex items-center gap-1">
+                <i class="fa-solid fa-arrow-trend-up"></i> +14.8% за последние 7 дней
+              </div>
+            </div>
+
+            <div class="glass-panel p-5 glass-glow-emerald">
+              <div class="flex items-center justify-between text-slate-400 text-xs mb-3">
+                <span>Доступно к выводу</span>
+                <div class="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
+                  <i class="fa-solid fa-wallet"></i>
+                </div>
+              </div>
+              <div id="stat-available" class="text-2xl font-black font-mono text-emerald-400">0.00 ₽</div>
+              <div class="text-[11px] text-slate-400 mt-2">
+                Мгновенный вывод 24/7 без задержек
+              </div>
+            </div>
+
+            <div class="glass-panel p-5 glass-glow-indigo">
+              <div class="flex items-center justify-between text-slate-400 text-xs mb-3">
+                <span>Уплаченная комиссия</span>
+                <div class="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center">
+                  <i class="fa-solid fa-percent"></i>
+                </div>
+              </div>
+              <div id="stat-fees" class="text-2xl font-black font-mono text-slate-300">0.00 ₽</div>
+              <div class="text-[11px] text-slate-400 mt-2">
+                Выгодные тарифы от 1.0%
+              </div>
+            </div>
+
+            <div class="glass-panel p-5">
+              <div class="flex items-center justify-between text-slate-400 text-xs mb-3">
+                <span>Всего выведено</span>
+                <div class="w-8 h-8 rounded-lg bg-slate-800 text-slate-300 flex items-center justify-center">
+                  <i class="fa-solid fa-money-bill-transfer"></i>
+                </div>
+              </div>
+              <div id="stat-payouts" class="text-2xl font-black font-mono text-white">0.00 ₽</div>
+              <div class="text-[11px] text-slate-400 mt-2">
+                Успешно через СБП и Карты
+              </div>
+            </div>
+          </div>
+
+          <!-- График оборота и инфо-блок -->
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="glass-panel p-6 lg:col-span-2">
+              <div class="flex items-center justify-between mb-4">
+                <div>
+                  <h3 class="text-sm font-bold text-slate-200">Динамика оборота платежей</h3>
+                  <p class="text-xs text-slate-500">График успешных входящих платежей по дням</p>
+                </div>
+                <span class="px-2.5 py-1 rounded-lg bg-slate-800/80 text-[11px] font-mono text-cyan-400">7 Дней</span>
+              </div>
+              <div class="h-64">
+                <canvas id="turnoverChart"></canvas>
+              </div>
+            </div>
+
+            <!-- Доступные методы приема -->
+            <div class="glass-panel p-6 flex flex-col justify-between">
+              <div>
+                <h3 class="text-sm font-bold text-slate-200 mb-1">Методы приема платежей</h3>
+                <p class="text-xs text-slate-500 mb-4">Все каналы работают с автоматическим подтверждением</p>
+                <div class="space-y-3">
+                  <div class="p-3 bg-slate-900/60 rounded-xl border border-white/5 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                      <div class="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-bold text-xs">СБП</div>
+                      <div>
+                        <div class="text-xs font-semibold text-slate-200">Система быстрых платежей (QR)</div>
+                        <div class="text-[10px] text-slate-400">Комиссия 1.5% • Зачисление 2 сек</div>
+                      </div>
+                    </div>
+                    <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                  </div>
+
+                  <div class="p-3 bg-slate-900/60 rounded-xl border border-white/5 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                      <div class="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-400 flex items-center justify-center font-bold text-xs">МИР</div>
+                      <div>
+                        <div class="text-xs font-semibold text-slate-200">Банковские карты РФ & МИР</div>
+                        <div class="text-[10px] text-slate-400">Комиссия 2.8% • 3D Secure 2.0</div>
+                      </div>
+                    </div>
+                    <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                  </div>
+
+                  <div class="p-3 bg-slate-900/60 rounded-xl border border-white/5 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                      <div class="w-8 h-8 rounded-lg bg-cyan-500/10 text-cyan-400 flex items-center justify-center font-bold text-xs">USDT</div>
+                      <div>
+                        <div class="text-xs font-semibold text-slate-200">Криптовалюта (TRC-20, TON)</div>
+                        <div class="text-[10px] text-slate-400">Комиссия 1.0% • 0% чарджбэков</div>
+                      </div>
+                    </div>
+                    <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+                  </div>
+                </div>
+              </div>
+
+              <button onclick="switchTab('checkout-demo')" class="mt-4 w-full py-2.5 rounded-xl btn-cyber-outline text-xs font-semibold flex items-center justify-center gap-2">
+                <i class="fa-solid fa-play"></i> Протестировать оплату
+              </button>
+            </div>
+          </div>
+
+          <!-- Последние транзакции -->
+          <div class="glass-panel p-6">
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <h3 class="text-sm font-bold text-slate-200">Последние операции</h3>
+                <p class="text-xs text-slate-500">Журнал недавних поступлений и выплат</p>
+              </div>
+              <button onclick="switchTab('transactions')" class="text-xs text-cyan-400 hover:text-cyan-300 font-medium">Все транзакции →</button>
+            </div>
+            <div id="recent-tx-list" class="divide-y divide-white/5">
+              <!-- Заполняется динамически -->
+            </div>
+          </div>
+        </section>
+
+        <!-- =============================================================== -->
+        <!-- ВКЛАДКА 2: ТРАНЗАКЦИИ & СЧЕТА -->
+        <!-- =============================================================== -->
+        <section id="tab-transactions" class="tab-content space-y-6 hidden">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h1 class="text-2xl font-bold tracking-tight text-white">Транзакции и реестр платежей</h1>
+              <p class="text-xs text-slate-400 mt-1">Полный журнал операций с фильтрацией и экспортом в CSV</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button id="btn-export-csv" class="btn-cyber-outline px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2">
+                <i class="fa-solid fa-file-csv"></i> Экспорт CSV
+              </button>
+              <button onclick="document.getElementById('modal-create-invoice').classList.remove('hidden')" class="btn-cyber-primary px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2">
+                <i class="fa-solid fa-plus"></i> Создать счет
+              </button>
+            </div>
+          </div>
+
+          <!-- Фильтры и поиск -->
+          <div class="glass-panel p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div class="flex items-center gap-2 w-full sm:w-auto overflow-x-auto">
+              <button data-filter-status="all" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white transition">Все</button>
+              <button data-filter-status="success" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 hover:text-white transition">Успешные</button>
+              <button data-filter-status="pending" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-800 text-slate-300 hover:text-white transition">В обработке</button>
+            </div>
+            <div class="relative w-full sm:w-72">
+              <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+              <input id="search-transactions" type="text" placeholder="Поиск по ID, описанию, email..." class="w-full cyber-input pl-9 text-xs py-2">
+            </div>
+          </div>
+
+          <!-- Таблица -->
+          <div class="glass-panel overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="border-b border-white/10 bg-slate-900/60 text-[11px] uppercase font-mono text-slate-400 tracking-wider">
+                    <th class="p-4">ID Платежа</th>
+                    <th class="p-4">Дата / Время</th>
+                    <th class="p-4">Назначение / Описание</th>
+                    <th class="p-4">Метод</th>
+                    <th class="p-4">Сумма</th>
+                    <th class="p-4">Комиссия</th>
+                    <th class="p-4">Статус</th>
+                  </tr>
+                </thead>
+                <tbody id="transactions-table-body" class="divide-y divide-white/5">
+                  <!-- Заполняется динамически -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- =============================================================== -->
+        <!-- ВКЛАДКА 3: ДЕМО-ЧЕКАУТ (СИМУЛЯТОР ПЛАТЕЖНОГО ШЛЮЗА) -->
+        <!-- =============================================================== -->
+        <section id="tab-checkout-demo" class="tab-content space-y-6 hidden">
+          <div>
+            <h1 class="text-2xl font-bold tracking-tight text-white">Страница оплаты</h1>
+            <p class="text-xs text-slate-400 mt-1">Счёт открывается отдельной страницей: QR по ГОСТ, карта и реквизиты.</p>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div class="glass-panel p-6 space-y-4">
+              <h3 class="text-base font-bold text-slate-200">Сгенерировать тестовый платеж</h3>
+              <p class="text-xs text-slate-400">Задайте параметры инвойса и запустите интерактивный чекаут шлюза Hi Plateg</p>
+              
+              <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Сумма к оплате (₽)</label>
+                <input id="demo-pay-amount" type="number" value="2990" class="w-full cyber-input text-lg font-mono font-bold text-cyan-400">
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Назначение платежа</label>
+                <input id="demo-pay-desc" type="text" value="Оплата Premium-доступа на 3 месяца" class="w-full cyber-input text-sm">
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Email покупателя</label>
+                <input id="demo-pay-email" type="email" value="customer@yandex.ru" class="w-full cyber-input text-sm">
+              </div>
+
+              <button onclick="
+                const amt = document.getElementById('demo-pay-amount').value;
+                const desc = document.getElementById('demo-pay-desc').value;
+                const email = document.getElementById('demo-pay-email').value;
+                apiCall('/api/transactions/create-invoice', 'POST', { amount: amt, description: desc, customerEmail: email }).then(r => {
+                  loadData();
+                  openCheckoutModal(r.transaction);
+                });
+              " class="w-full py-3 rounded-xl btn-cyber-primary text-sm font-bold flex items-center justify-center gap-2">
+                <i class="fa-solid fa-credit-card"></i>
+                <span>Открыть страницу оплаты</span>
+              </button>
+            </div>
+
+            <div class="glass-panel p-6 flex flex-col justify-center items-center text-center">
+              <div class="w-16 h-16 rounded-2xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center text-3xl mb-4 border border-cyan-500/30 shadow-lg shadow-cyan-500/20">
+                <i class="fa-solid fa-shield-virus"></i>
+              </div>
+              <h3 class="text-lg font-bold text-white mb-2">Технология Защиты Hi Plateg Shield</h3>
+              <p class="text-xs text-slate-400 max-w-sm mb-4">
+                Каждая транзакция проходит автоматический скоринг по 14 антифрод-параметрам, включая проверку фингерпринта браузера, IP-репутацию и 3D-Secure 2.0.
+              </p>
+              <div class="grid grid-cols-2 gap-3 w-full text-left text-xs font-mono">
+                <div class="p-3 bg-slate-900/60 rounded-xl border border-white/5">
+                  <div class="text-slate-400">Конверсия оплаты:</div>
+                  <div class="text-emerald-400 font-bold text-sm">98.4%</div>
+                </div>
+                <div class="p-3 bg-slate-900/60 rounded-xl border border-white/5">
+                  <div class="text-slate-400">Скорость зачисления:</div>
+                  <div class="text-cyan-400 font-bold text-sm">&lt; 3 секунды</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- =============================================================== -->
+        <!-- ВКЛАДКА 4: ВЫВОД СРЕДСТВ (PAYOUT) -->
+        <!-- =============================================================== -->
+        <section id="tab-payout" class="tab-content space-y-6 hidden">
+          <div>
+            <h1 class="text-2xl font-bold tracking-tight text-white">Вывод средств (Payouts)</h1>
+            <p class="text-xs text-slate-400 mt-1">Автоматические моментальные выплаты на СБП, карты РФ и криптокошельки</p>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="glass-panel p-6 lg:col-span-2">
+              <form id="form-payout" class="space-y-4">
+                <div>
+                  <label class="block text-xs font-semibold text-slate-300 mb-1">Сумма вывода (₽)</label>
+                  <input id="payout-amount" type="number" step="0.01" required placeholder="10000" class="w-full cyber-input text-lg font-mono font-bold text-emerald-400">
+                  <div class="text-[11px] text-slate-400 mt-1 flex justify-between">
+                    <span>Комиссия за вывод: 1.8%</span>
+                    <span>Мин. вывод: 500 ₽</span>
+                  </div>
+                </div>
+
+                <div>
+                  <label class="block text-xs font-semibold text-slate-300 mb-1">Метод выплаты</label>
+                  <select id="payout-method" class="w-full cyber-input text-sm">
+                    <option value="sbp_payout">СБП (По номеру телефона / Любой банк РФ)</option>
+                    <option value="card_payout">Банковская карта (МИР / Visa / Mastercard)</option>
+                    <option value="crypto_usdt">USDT Tether (TRC-20)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label class="block text-xs font-semibold text-slate-300 mb-1">Реквизиты получателя</label>
+                  <input id="payout-destination" type="text" required placeholder="+7 999 123-45-67 (Т-Банк) или номер карты" class="w-full cyber-input text-sm font-mono">
+                </div>
+
+                <button type="submit" class="w-full py-3 rounded-xl btn-cyber-emerald text-sm font-bold flex items-center justify-center gap-2 mt-4">
+                  <i class="fa-solid fa-paper-plane"></i>
+                  <span>Отправить запрос на вывод</span>
+                </button>
+              </form>
+            </div>
+
+            <div class="glass-panel p-6 space-y-4">
+              <h3 class="text-sm font-bold text-slate-200">Информация о лимитах</h3>
+              <div class="space-y-3 text-xs text-slate-400">
+                <div class="flex justify-between pb-2 border-b border-white/5">
+                  <span>Дневной лимит вывода:</span>
+                  <span class="text-slate-200 font-mono font-bold">5 000 000 ₽</span>
+                </div>
+                <div class="flex justify-between pb-2 border-b border-white/5">
+                  <span>Регламент зачисления:</span>
+                  <span class="text-emerald-400 font-bold">Моментально (24/7)</span>
+                </div>
+                <div class="flex justify-between pb-2 border-b border-white/5">
+                  <span>Шлюз выплат:</span>
+                  <span class="text-cyan-400 font-bold font-mono">СБП B2C API</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- =============================================================== -->
+        <!-- ВКЛАДКА 5: API & ВЕБХУКИ -->
+        <!-- =============================================================== -->
+        <section id="tab-api" class="tab-content space-y-6 hidden">
+          <div>
+            <h1 class="text-2xl font-bold tracking-tight text-white">Интеграция по API & Вебхуки</h1>
+            <p class="text-xs text-slate-400 mt-1">Ключи доступа, подпись запросов HMAC-SHA256 и примеры интеграции</p>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Ключи доступа -->
+            <div class="glass-panel p-6 space-y-4">
+              <div class="flex items-center justify-between">
+                <h3 class="text-sm font-bold text-slate-200">Ваши API Ключи</h3>
+                <button id="btn-regen-keys" class="text-xs text-rose-400 hover:text-rose-300 font-medium">
+                  <i class="fa-solid fa-rotate mr-1"></i> Перевыпустить
+                </button>
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-400 mb-1">Публичный ключ (Public Key)</label>
+                <div class="flex gap-2">
+                  <input id="api-key-public" type="text" readonly value="hp_live_mer_55a290f11cd73491" class="w-full cyber-input font-mono text-xs">
+                  <button onclick="copyText('api-key-public')" class="btn-cyber-outline px-3 rounded-xl text-xs" title="Копировать">
+                    <i class="fa-regular fa-copy"></i>
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-400 mb-1">Секретный ключ (Secret Key)</label>
+                <div class="flex gap-2">
+                  <input id="api-key-secret" type="password" readonly value="hp_sec_mer_8f39b1a039d549e3820fa" class="w-full cyber-input font-mono text-xs">
+                  <button onclick="
+                    const f = document.getElementById('api-key-secret');
+                    f.type = f.type === 'password' ? 'text' : 'password';
+                  " class="btn-cyber-outline px-3 rounded-xl text-xs" title="Показать/скрыть">
+                    <i class="fa-regular fa-eye"></i>
+                  </button>
+                  <button onclick="copyText('api-key-secret')" class="btn-cyber-outline px-3 rounded-xl text-xs" title="Копировать">
+                    <i class="fa-regular fa-copy"></i>
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-400 mb-1">URL адрес Webhook оповещений</label>
+                <input id="api-webhook-url" type="url" placeholder="https://your-site.com/api/payment-callback" value="https://neon-store.ru/api/pay-callback" class="w-full cyber-input font-mono text-xs">
+              </div>
+            </div>
+
+            <!-- Пример cURL запроса -->
+            <div class="glass-panel p-6 space-y-4">
+              <h3 class="text-sm font-bold text-slate-200">Пример создания счета через cURL</h3>
+              <div class="bg-slate-950 p-4 rounded-xl border border-white/5 font-mono text-xs text-cyan-300 overflow-x-auto">
+<pre>curl -X POST https://api.hiplateg.io/v1/invoices \
+  -H "Authorization: Bearer hp_live_mer_55a290f11cd73491" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "amount": 2990.00,
+    "currency": "RUB",
+    "description": "Заказ #4912",
+    "return_url": "https://store.ru/success"
+  }'</pre>
+              </div>
+              <div class="text-[11px] text-slate-400">
+                Ответ сервера содержит готовую ссылку <span class="text-cyan-400 font-mono">payment_url</span> для перенаправления покупателя.
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- =============================================================== -->
+        <!-- ВКЛАДКА 6: БЕЗОПАСНОСТЬ (2FA, ЗАЩИТА) -->
+        <!-- =============================================================== -->
+        <section id="tab-security" class="tab-content space-y-6 hidden">
+          <div>
+            <h1 class="text-2xl font-bold tracking-tight text-white">Центр Безопасности Аккаунта</h1>
+            <p class="text-xs text-slate-400 mt-1">Двухфакторная аутентификация, белые списки IP и защита сессий</p>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="glass-panel p-6 space-y-4">
+              <h3 class="text-sm font-bold text-slate-200">Двухфакторная аутентификация (2FA)</h3>
+              <p class="text-xs text-slate-400">Защищает вход в кабинет одноразовыми кодами TOTP (Google Authenticator / Yandex Key)</p>
+              
+              <div class="p-4 bg-slate-900/60 rounded-xl border border-white/5 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                  <div class="w-10 h-10 rounded-xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center">
+                    <i class="fa-solid fa-mobile-screen-button text-lg"></i>
+                  </div>
+                  <div>
+                    <div class="text-sm font-semibold text-slate-200">Статус 2FA: Активна</div>
+                    <div class="text-xs text-emerald-400 font-medium">Аккаунт защищен</div>
+                  </div>
+                </div>
+                <button onclick="showToast('Настройки 2FA обновлены');" class="btn-cyber-outline px-3 py-1.5 rounded-lg text-xs font-semibold">
+                  Настроить
+                </button>
+              </div>
+            </div>
+
+            <div class="glass-panel p-6 space-y-4">
+              <h3 class="text-sm font-bold text-slate-200">IP Whitelist для API</h3>
+              <p class="text-xs text-slate-400">Разрешать выполнение выплат и критических API запросов только с доверенных IP-адресов сервера</p>
+              
+              <textarea placeholder="Введите IP адреса по одному на строку&#10;185.120.45.19&#10;94.25.180.12" class="w-full cyber-input font-mono text-xs h-24"></textarea>
+              <button onclick="showToast('Список разрешенных IP сохранен');" class="btn-cyber-primary px-4 py-2 rounded-xl text-xs font-semibold">
+                Сохранить IP Whitelist
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- =============================================================== -->
+        <!-- АДМИНКА 1: ОБЗОР ПЛАТФОРМЫ -->
+        <!-- =============================================================== -->
+        <section id="tab-admin-overview" class="tab-content space-y-6 hidden">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-rose-500/10 text-rose-400 border border-rose-500/30 mb-1">
+                SUPERADMIN CONTROL PANEL
+              </div>
+              <h1 class="text-2xl font-bold tracking-tight text-white">Глобальная статистика Hi Plateg</h1>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="glass-panel p-5 border-l-4 border-l-cyan-500">
+              <div class="text-xs text-slate-400 mb-1">Глобальный оборот системы</div>
+              <div id="admin-stat-volume" class="text-2xl font-black font-mono text-cyan-400">0.00 ₽</div>
+              <div class="text-[11px] text-slate-400 mt-2">С момента запуска</div>
+            </div>
+
+            <div class="glass-panel p-5 border-l-4 border-l-emerald-500">
+              <div class="text-xs text-slate-400 mb-1">Чистый доход (Комиссии)</div>
+              <div id="admin-stat-revenue" class="text-2xl font-black font-mono text-emerald-400">0.00 ₽</div>
+              <div class="text-[11px] text-slate-400 mt-2">Прибыль платформы</div>
+            </div>
+
+            <div class="glass-panel p-5 border-l-4 border-l-indigo-500">
+              <div class="text-xs text-slate-400 mb-1">Всего мерчантов</div>
+              <div id="admin-stat-merchants" class="text-2xl font-black font-mono text-indigo-400">0</div>
+              <div class="text-[11px] text-slate-400 mt-2">Подключенные магазины</div>
+            </div>
+
+            <div class="glass-panel p-5 border-l-4 border-l-amber-500">
+              <div class="text-xs text-slate-400 mb-1">Выплачено клиентам</div>
+              <div id="admin-stat-payouts" class="text-2xl font-black font-mono text-amber-400">0.00 ₽</div>
+              <div class="text-[11px] text-slate-400 mt-2">Успешные шлюзы выплат</div>
+            </div>
+          </div>
+        </section>
+
+        <!-- =============================================================== -->
+        <!-- АДМИНКА 2: ВСЕ МЕРЧАНТЫ (УПРАВЛЕНИЕ ПОЛЬЗОВАТЕЛЯМИ) -->
+        <!-- =============================================================== -->
+        <section id="tab-admin-users" class="tab-content space-y-6 hidden">
+          <div class="flex items-center justify-between">
+            <div>
+              <h1 class="text-2xl font-bold tracking-tight text-white">Управление пользователями и мерчантами</h1>
+              <p class="text-xs text-slate-400 mt-1">Редактирование балансов, блокировка, назначение индивидуальных комиссий</p>
+            </div>
+          </div>
+
+          <div class="glass-panel overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="w-full text-left border-collapse">
+                <thead>
+                  <tr class="border-b border-white/10 bg-slate-900/60 text-[11px] uppercase font-mono text-slate-400 tracking-wider">
+                    <th class="p-4">Мерчант / Email</th>
+                    <th class="p-4">Роль</th>
+                    <th class="p-4">Баланс</th>
+                    <th class="p-4">Тариф / Комиссия</th>
+                    <th class="p-4">Статус</th>
+                    <th class="p-4 text-right">Действия</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-users-table-body" class="divide-y divide-white/5">
+                  <!-- Заполняется динамически -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- =============================================================== -->
+        <!-- АДМИНКА 3: УПРАВЛЕНИЕ КОМИССИЯМИ И ТАРИФАМИ -->
+        <!-- =============================================================== -->
+        <section id="tab-admin-commissions" class="tab-content space-y-6 hidden">
+          <div>
+            <h1 class="text-2xl font-bold tracking-tight text-white">Управление комиссиями и тарифами</h1>
+            <p class="text-xs text-slate-400 mt-1">Гибкая настройка процентных ставок для каждого платежного метода в системе</p>
+          </div>
+
+          <form id="form-admin-commissions" class="glass-panel p-6 space-y-6 max-w-3xl">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Базовая ставка комиссии (%)</label>
+                <div class="relative">
+                  <input id="fee-base-percent" type="number" step="0.1" required class="w-full cyber-input font-mono font-bold text-sm" value="2.5">
+                  <span class="absolute right-4 top-3 text-slate-400 text-xs font-mono">%</span>
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Комиссия на вывод средств Payout (%)</label>
+                <div class="relative">
+                  <input id="fee-payout-percent" type="number" step="0.1" required class="w-full cyber-input font-mono font-bold text-sm" value="1.8">
+                  <span class="absolute right-4 top-3 text-slate-400 text-xs font-mono">%</span>
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">СБП QR (Система быстрых платежей) (%)</label>
+                <div class="relative">
+                  <input id="fee-sbp-percent" type="number" step="0.1" required class="w-full cyber-input font-mono font-bold text-sm" value="1.5">
+                  <span class="absolute right-4 top-3 text-slate-400 text-xs font-mono">%</span>
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Банковские карты РФ & МИР (%)</label>
+                <div class="relative">
+                  <input id="fee-card-percent" type="number" step="0.1" required class="w-full cyber-input font-mono font-bold text-sm" value="2.8">
+                  <span class="absolute right-4 top-3 text-slate-400 text-xs font-mono">%</span>
+                </div>
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Криптовалюта USDT TRC-20 (%)</label>
+                <div class="relative">
+                  <input id="fee-crypto-percent" type="number" step="0.1" required class="w-full cyber-input font-mono font-bold text-sm" value="1.0">
+                  <span class="absolute right-4 top-3 text-slate-400 text-xs font-mono">%</span>
+                </div>
+              </div>
+            </div>
+
+            <button type="submit" class="btn-cyber-primary px-6 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2">
+              <i class="fa-solid fa-floppy-disk"></i> Сохранить тарифы платформы
+            </button>
+          </form>
+        </section>
+
+        <!-- =============================================================== -->
+        <!-- АДМИНКА 4: НАСТРОЙКИ ШЛЮЗА & ПАНЕЛИ -->
+        <!-- =============================================================== -->
+        <section id="tab-admin-settings" class="tab-content space-y-6 hidden">
+          <div>
+            <h1 class="text-2xl font-bold tracking-tight text-white">Параметры и управление панелью</h1>
+            <p class="text-xs text-slate-400 mt-1">Лимиты транзакций, режим техработ и настройки безопасности</p>
+          </div>
+
+          <form id="form-admin-settings" class="glass-panel p-6 space-y-6 max-w-3xl">
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Минимальный платеж (₽)</label>
+                <input id="setting-min-deposit" type="number" required class="w-full cyber-input font-mono text-sm" value="100">
+              </div>
+
+              <div>
+                <label class="block text-xs font-semibold text-slate-300 mb-1">Максимальный единовременный платеж (₽)</label>
+                <input id="setting-max-deposit" type="number" required class="w-full cyber-input font-mono text-sm" value="1500000">
+              </div>
+            </div>
+
+            <div class="space-y-4 pt-4 border-t border-white/5">
+              <label class="flex items-center gap-3 cursor-pointer">
+                <input id="setting-maintenance" type="checkbox" class="w-4 h-4 rounded bg-slate-900 border-white/20 text-indigo-600 focus:ring-0">
+                <div>
+                  <div class="text-xs font-semibold text-slate-200">Режим технического обслуживания (Maintenance Mode)</div>
+                  <div class="text-[11px] text-slate-400">Временно приостанавливает прием новых платежей на шлюзе</div>
+                </div>
+              </label>
+
+              <label class="flex items-center gap-3 cursor-pointer">
+                <input id="setting-antifraud" type="checkbox" checked class="w-4 h-4 rounded bg-slate-900 border-white/20 text-indigo-600 focus:ring-0">
+                <div>
+                  <div class="text-xs font-semibold text-slate-200">Включить автоматический антифрод скоринг транзакций</div>
+                  <div class="text-[11px] text-slate-400">Блокирует подозрительные попытки оплаты и поддельные запросы</div>
+                </div>
+              </label>
+            </div>
+
+            <button type="submit" class="btn-cyber-primary px-6 py-2.5 rounded-xl text-xs font-bold flex items-center gap-2">
+              <i class="fa-solid fa-check"></i> Применить настройки
+            </button>
+          </form>
+        </section>
+
+        <!-- =============================================================== -->
+        <section id="tab-admin-gateways" class="tab-content space-y-6 hidden">
+        <div><h1 class="text-2xl font-bold tracking-tight text-white">Реквизиты для платежки</h1>
+        <p class="text-xs text-slate-400 mt-1">Эти данные попадают в QR и в платёжное поручение. Демо-счёт банк не примет.</p></div>
+        <form id="form-gateways" class="glass-panel p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <label class="text-xs font-semibold text-slate-300">Получатель<input id="bank-recipient" class="mt-1 w-full cyber-input text-sm" required></label>
+        <label class="text-xs font-semibold text-slate-300">ИНН<input id="bank-inn" class="mt-1 w-full cyber-input text-sm font-mono" required></label>
+        <label class="text-xs font-semibold text-slate-300">Расчётный счёт<input id="bank-account" class="mt-1 w-full cyber-input text-sm font-mono" required></label>
+        <label class="text-xs font-semibold text-slate-300">Банк<input id="bank-bank" class="mt-1 w-full cyber-input text-sm" required></label>
+        <label class="text-xs font-semibold text-slate-300">БИК<input id="bank-bic" class="mt-1 w-full cyber-input text-sm font-mono" required></label>
+        <label class="text-xs font-semibold text-slate-300">Корр. счёт<input id="bank-corr" class="mt-1 w-full cyber-input text-sm font-mono" required></label>
+        <button type="submit" class="md:col-span-2 py-3 rounded-xl btn-cyber-primary text-sm font-bold">Сохранить реквизиты</button>
+        </form></section>
+
+        <!-- АДМИНКА 5: ЖУРНАЛ АУДИТА И ЛОГИ БЕЗОПАСНОСТИ -->
+        <!-- =============================================================== -->
+        <section id="tab-admin-logs" class="tab-content space-y-6 hidden">
+          <div>
+            <h1 class="text-2xl font-bold tracking-tight text-white">Журнал безопасности и аудит</h1>
+            <p class="text-xs text-slate-400 mt-1">Фиксация критических действий, входов в систему и изменений тарифов</p>
+          </div>
+
+          <div class="glass-panel p-6 space-y-3" id="admin-logs-list">
+            <!-- Заполняется динамически -->
+          </div>
+        </section>
+
+      </main>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- МОДАЛЬНЫЕ ОКНА -->
+  <!-- ========================================================================= -->
+
+  <!-- Модалка: Создать счет -->
+  <div id="modal-create-invoice" class="modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 hidden">
+    <div class="w-full max-w-md glass-panel p-6 relative border border-white/10 shadow-2xl animate-fade-in">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-base font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-receipt text-cyan-400"></i> Создать счет на оплату
+        </h3>
+        <button class="close-modal text-slate-400 hover:text-white">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <form id="form-create-invoice" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Сумма (₽)</label>
+          <input id="invoice-amount" type="number" step="0.01" required placeholder="1490.00" class="w-full cyber-input text-base font-mono font-bold text-cyan-400">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Назначение платежа</label>
+          <input id="invoice-desc" type="text" placeholder="Оплата заказа #4912" class="w-full cyber-input text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Метод оплаты</label>
+          <select id="invoice-method" class="w-full cyber-input text-sm">
+            <option value="sbp">СБП (QR-код моментально)</option>
+            <option value="card">Банковская карта (РФ / МИР)</option>
+            <option value="crypto">Криптовалюта USDT (TRC-20)</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Email покупателя (необязательно)</label>
+          <input id="invoice-email" type="email" placeholder="customer@mail.ru" class="w-full cyber-input text-sm">
+        </div>
+
+        <button type="submit" class="w-full py-3 rounded-xl btn-cyber-primary text-sm font-bold flex items-center justify-center gap-2 mt-2">
+          <span>Сформировать счет</span>
+          <i class="fa-solid fa-arrow-right"></i>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Модалка: Интерактивный чекаут шлюза Hi Plateg (Как видит покупатель) -->
+  <div id="modal-checkout" class="modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 hidden">
+    <div class="w-full max-w-lg glass-panel p-6 sm:p-8 relative border border-cyan-500/30 shadow-2xl animate-fade-in bg-[#0c1222]/95">
+      <button class="close-modal absolute top-4 right-4 text-slate-400 hover:text-white">
+        <i class="fa-solid fa-xmark text-lg"></i>
+      </button>
+
+      <!-- Шапка чекаута -->
+      <div class="flex items-center justify-between pb-4 border-b border-white/10 mb-6">
+        <div>
+          <div class="text-[10px] font-mono font-bold text-cyan-400 uppercase tracking-wider">HI PLATEG CHECKOUT</div>
+          <div class="text-xs text-slate-400" id="checkout-merchant-name">Мерчант</div>
+        </div>
+        <div class="text-right">
+          <div class="text-xs text-slate-400">К оплате:</div>
+          <div id="checkout-amount" class="text-2xl font-black font-mono text-emerald-400">0.00 ₽</div>
+        </div>
+      </div>
+
+      <div class="mb-4">
+        <div class="text-xs text-slate-300 font-medium" id="checkout-desc">Оплата заказа</div>
+        <div class="text-[11px] text-slate-500 font-mono mt-0.5">Инвойс ID: <span id="checkout-tx-id" class="text-cyan-400">tx_000000</span></div>
+      </div>
+
+      <!-- Вкладки способов оплаты в чекауте -->
+      <div class="p-3 bg-slate-900/90 rounded-xl border border-white/5 space-y-4 mb-6">
+        <div class="flex items-center gap-2 text-xs font-semibold text-slate-300">
+          <i class="fa-solid fa-qrcode text-emerald-400"></i>
+          <span>Оплата через СБП (Система быстрых платежей):</span>
+        </div>
+        
+        <!-- Анимированный QR код СБП -->
+        <div class="flex flex-col items-center justify-center py-2">
+          <div class="w-44 h-44 bg-white p-3 rounded-2xl shadow-xl flex items-center justify-center relative group">
+            <svg class="w-full h-full" viewBox="0 0 100 100" fill="black">
+              <!-- Симуляция стильного QR кода -->
+              <rect x="5" y="5" width="25" height="25" fill="#0f172a" rx="4"/>
+              <rect x="9" y="9" width="17" height="17" fill="white" rx="2"/>
+              <rect x="12" y="12" width="11" height="11" fill="#0f172a"/>
+              <rect x="70" y="5" width="25" height="25" fill="#0f172a" rx="4"/>
+              <rect x="74" y="9" width="17" height="17" fill="white" rx="2"/>
+              <rect x="77" y="12" width="11" height="11" fill="#0f172a"/>
+              <rect x="5" y="70" width="25" height="25" fill="#0f172a" rx="4"/>
+              <rect x="9" y="74" width="17" height="17" fill="white" rx="2"/>
+              <rect x="12" y="77" width="11" height="11" fill="#0f172a"/>
+              <!-- Точки данных -->
+              <rect x="36" y="8" width="6" height="6" fill="#06b6d4"/>
+              <rect x="48" y="18" width="6" height="6" fill="#10b981"/>
+              <rect x="36" y="36" width="28" height="28" fill="#4f46e5" rx="6"/>
+              <rect x="44" y="44" width="12" height="12" fill="white" rx="2"/>
+              <rect x="70" y="44" width="8" height="8" fill="#0f172a"/>
+              <rect x="15" y="44" width="8" height="8" fill="#0f172a"/>
+              <rect x="44" y="75" width="10" height="10" fill="#0f172a"/>
+              <rect x="68" y="75" width="18" height="18" fill="#0f172a"/>
+            </svg>
+          </div>
+          <p class="text-[11px] text-slate-400 mt-2">Отсканируйте камерой телефона или любым банковским приложением</p>
+        </div>
+      </div>
+
+      <!-- Кнопка симуляции успешной оплаты -->
+      <button id="btn-pay-now" class="w-full py-3.5 rounded-xl btn-cyber-emerald text-sm font-bold flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20">
+        <i class="fa-solid fa-lock"></i>
+        <span>Симулировать оплату клиентом</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Модалка Админа: Изменение баланса мерчанта -->
+  <div id="modal-adjust-balance" class="modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 hidden">
+    <div class="w-full max-w-md glass-panel p-6 relative border border-white/10 shadow-2xl animate-fade-in">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-base font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-coins text-cyan-400"></i> Изменение баланса мерчанта
+        </h3>
+        <button class="close-modal text-slate-400 hover:text-white">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <form id="form-adjust-balance" class="space-y-4">
+        <input type="hidden" id="adjust-user-id">
+        <div>
+          <div class="text-xs text-slate-400">Мерчант:</div>
+          <div class="text-sm font-bold text-slate-200" id="adjust-user-name">-</div>
+        </div>
+        <div>
+          <div class="text-xs text-slate-400">Текущий баланс:</div>
+          <div class="text-sm font-mono font-bold text-emerald-400" id="adjust-user-current">0 ₽</div>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Сумма корректировки (+ или -)</label>
+          <input id="adjust-amount" type="number" step="0.01" required placeholder="+5000 или -2000" class="w-full cyber-input text-base font-mono">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Причина изменения</label>
+          <input id="adjust-reason" type="text" placeholder="Бонус / Ручное зачисление" class="w-full cyber-input text-sm">
+        </div>
+
+        <button type="submit" class="w-full py-3 rounded-xl btn-cyber-primary text-sm font-bold flex items-center justify-center gap-2">
+          <span>Применить изменение</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Модалка Админа: Персональная комиссия -->
+  <div id="modal-user-commission" class="modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 hidden">
+    <div class="w-full max-w-md glass-panel p-6 relative border border-white/10 shadow-2xl animate-fade-in">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-base font-bold text-white flex items-center gap-2">
+          <i class="fa-solid fa-percent text-indigo-400"></i> Индивидуальный тариф
+        </h3>
+        <button class="close-modal text-slate-400 hover:text-white">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <form id="form-user-commission" class="space-y-4">
+        <input type="hidden" id="comm-user-id">
+        <div>
+          <div class="text-xs text-slate-400">Мерчант:</div>
+          <div class="text-sm font-bold text-slate-200" id="comm-user-name">-</div>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Персональная ставка (%)</label>
+          <input id="comm-rate-input" type="number" step="0.1" placeholder="Пусто для стандартного тарифа" class="w-full cyber-input font-mono font-bold text-sm">
+          <div class="text-[11px] text-slate-400 mt-1">Оставьте пустым, чтобы действовали общесистемные тарифы.</div>
+        </div>
+
+        <button type="submit" class="w-full py-3 rounded-xl btn-cyber-indigo btn-cyber-primary text-sm font-bold flex items-center justify-center gap-2">
+          <span>Сохранить тариф</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>

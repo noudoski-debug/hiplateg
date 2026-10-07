@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Оплата — Hi Plateg</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/pay.css">
+</head>
+<body>
+  <main class="page">
+    <section class="sheet">
+      <div class="center" id="view-loading">
+        <div>
+          <div class="spinner" aria-hidden="true"></div>
+          <p>Открываем счёт</p>
+        </div>
+      </div>
+      <div class="center" id="view-missing" hidden>
+        <div>
+          <h1>Счёт не найден</h1>
+          <p id="missing-text">Проверьте ссылку или попросите магазин выставить счёт ещё раз.</p>
+        </div>
+      </div>
+      <div class="contents" id="view-pay" hidden>
+        <aside class="summary">
+          <div>
+            <a class="brand" href="index.html">
+              <span class="mark" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 3h3.2v10H3V3Zm6.8 0H13v10H9.8V3Z" fill="#fbf8f3"/></svg>
+              </span>
+              <span class="brand-name">Hi Plateg <span>Pay</span></span>
+            </a>
+            <p class="kicker">Счёт на оплату</p>
+          </div>
+          <div>
+            <p class="amount-label">К оплате</p>
+            <p class="amount" id="amount">—</p>
+            <p class="purpose" id="purpose"></p>
+          </div>
+          <dl class="meta">
+            <div><dt>Магазин</dt><dd id="merchant">—</dd></div>
+            <div><dt>Счёт</dt><dd class="mono" id="invoice">—</dd></div>
+            <div><dt>Покупатель</dt><dd id="email">—</dd></div>
+          </dl>
+          <p class="summary-foot">QR собирается по ГОСТ Р 56042. Полный номер карты на сервер не отправляется.</p>
+        </aside>
+        <section class="pay">
+          <div class="methods" role="tablist" aria-label="Способ оплаты">
+            <button class="method" id="tab-sbp" type="button" role="tab" aria-pressed="true">СБП и QR</button>
+            <button class="method" id="tab-card" type="button" role="tab" aria-pressed="false">Карта</button>
+            <button class="method" id="tab-bank" type="button" role="tab" aria-pressed="false">Реквизиты</button>
+          </div>
+          <div class="panel" id="panel-sbp">
+            <div class="qr-wrap">
+              <div class="qr-frame"><canvas id="qr" width="168" height="168" aria-label="QR платёжного поручения"></canvas></div>
+              <div>
+                <h2>Оплата в приложении банка</h2>
+                <p class="lede">Отсканируйте код. Банк подставит получателя, счёт и сумму.</p>
+                <div class="actions"><button class="text-btn" id="copy-purpose" type="button">Скопировать назначение</button></div>
+              </div>
+            </div>
+            <p class="warn" id="demo-req" hidden>В QR стоят демонстрационные реквизиты. Пока администратор не заменит их на свои, банк такой платёж не проведёт.</p>
+            <button class="btn" id="confirm-sbp" type="button">Оплата прошла</button>
+            <p class="hint">Нажмите после перевода в банке, чтобы отметить счёт оплаченным у магазина.</p>
+          </div>
+          <div class="panel" id="panel-card" hidden>
+            <h2>Банковская карта</h2>
+            <p class="lede">МИР, Visa и Mastercard. На сервер уходят только последние 4 цифры.</p>
+            <form class="form" id="card-form" novalidate>
+              <label class="field" id="field-pan"><span>Номер карты</span><input id="pan" inputmode="numeric" autocomplete="cc-number" placeholder="2200 0000 0000 0004" maxlength="23"></label>
+              <div class="row">
+                <label class="field" id="field-exp"><span>Срок</span><input id="exp" inputmode="numeric" autocomplete="cc-exp" placeholder="12 / 28" maxlength="7"></label>
+                <label class="field" id="field-cvc"><span>CVC</span><input id="cvc" inputmode="numeric" autocomplete="cc-csc" placeholder="123" maxlength="3"></label>
+              </div>
+              <label class="field" id="field-holder"><span>Имя на карте</span><input id="holder" autocomplete="cc-name" placeholder="IVAN IVANOV"></label>
+              <p class="field-error" id="card-error" role="alert"></p>
+              <button class="btn" id="pay-card" type="submit">Оплатить</button>
+            </form>
+            <p class="hint">Пока эквайер не подключён, карта проверяется здесь и зачисляется в кабинете. Тестовый номер: 2200 0000 0000 0004.</p>
+          </div>
+          <div class="panel" id="panel-bank" hidden>
+            <h2>Платёжное поручение</h2>
+            <p class="lede">Те же реквизиты, что зашиты в QR. Их можно перенести в банк вручную.</p>
+            <dl class="reqs" id="reqs"></dl>
+            <div class="actions">
+              <button class="text-btn" id="copy-reqs" type="button">Скопировать реквизиты</button>
+              <button class="text-btn" id="print-slip" type="button">Печать</button>
+            </div>
+          </div>
+          <p class="status-line" id="status" role="status"></p>
+        </section>
+      </div>
+      <div class="center" id="view-done" hidden>
+        <div>
+          <div class="check" aria-hidden="true"><svg width="22" height="22" viewBox="0 0 22 22" fill="none"><path d="M4 11.5 8.5 16 18 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+          <h1>Оплачено</h1>
+          <p id="done-lead">Счёт зачислен магазину.</p>
+          <div class="receipt" id="receipt"></div>
+          <div class="actions" style="justify-content:center"><button class="text-btn" id="print-receipt" type="button">Печать квитанции</button></div>
+        </div>
+      </div>
+    </section>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+  <script src="js/pay.js"></script>
+</body>
+</html>

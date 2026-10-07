@@ -1,0 +1,167 @@
+{
+  "settings": {
+    "platformName": "Hi Plateg",
+    "currency": "RUB",
+    "maintenance": false,
+    "minDeposit": 100,
+    "maxDeposit": 1500000,
+    "baseCommissionPercent": 2.5,
+    "baseFixedCommission": 0,
+    "methodCommissions": {
+      "sbp": 1.5,
+      "card": 2.8,
+      "crypto": 1,
+      "p2p": 3.5,
+      "mir_pay": 2
+    },
+    "payoutCommissionPercent": 1.8,
+    "antiFraudEnabled": true,
+    "ipWhitelistStrict": false,
+    "bankingRequisites": {
+      "recipientName": "ИП Платежные Решения",
+      "inn": "770123456789",
+      "accountNumber": "40802810900000012345",
+      "bankName": "АО ТБанк",
+      "bic": "044525974",
+      "correspAccount": "30101810145620000974"
+    },
+    "gateways": {
+      "yookassa": {
+        "enabled": false
+      },
+      "tinkoff": {
+        "enabled": false
+      },
+      "cryptomus": {
+        "enabled": false
+      }
+    }
+  },
+  "users": [
+    {
+      "id": "usr_admin_001",
+      "name": "Главный Администратор",
+      "email": "admin@hiplateg.io",
+      "role": "admin",
+      "passwordHash": "9baa4f0b78eb3e3cb6ff3c7e9dcd42b2e8fbd3aa9c7d515eaeb1abe02a10388d53289f83967277dad2a4892fc19b68da449fac73bcf1c3fe832bc3a463e537a2",
+      "passwordSalt": "f5fad37df297d260ab3413ed18461b0f",
+      "balance": 854200.5,
+      "holdBalance": 12500,
+      "currency": "RUB",
+      "status": "active",
+      "twoFactorEnabled": true,
+      "apiKeyPublic": "hp_live_adm_994821a0f8234912",
+      "apiKeySecret": "hp_sec_adm_e1b746f3c1a90d843810f",
+      "webhookUrl": "https://api.hiplateg.io/webhooks/v1",
+      "customCommission": null,
+      "createdAt": "2026-10-06T15:37:53.057Z"
+    },
+    {
+      "id": "usr_demo_002",
+      "name": "Neon Store / ИП Иванов",
+      "email": "merchant@store.ru",
+      "role": "merchant",
+      "passwordHash": "17a3aaf723bab341074a5ea20f34da32fbe379c77b66de6087fbb903e92d7b99998bb5003bc1d6f758c249d0e83567b4fdf78ba85e3fbb46a3f79b08bf2d3040",
+      "passwordSalt": "ba7d29852240eb00c36bb249d16ecf8c",
+      "balance": 142850,
+      "holdBalance": 4200,
+      "currency": "RUB",
+      "status": "active",
+      "twoFactorEnabled": false,
+      "apiKeyPublic": "hp_live_mer_55a290f11cd73491",
+      "apiKeySecret": "hp_sec_mer_8f39b1a039d549e3820fa",
+      "webhookUrl": "https://neon-store.ru/api/pay-callback",
+      "customCommission": 2.2,
+      "createdAt": "2026-09-22T15:37:53.059Z"
+    }
+  ],
+  "transactions": [
+    {
+      "id": "tx_9823412",
+      "userId": "usr_demo_002",
+      "merchantName": "Neon Store / ИП Иванов",
+      "type": "deposit",
+      "amount": 5490,
+      "netAmount": 5369.22,
+      "fee": 120.78,
+      "currency": "RUB",
+      "method": "sbp",
+      "description": "Оплата заказа #4912 (Наушники CyberPulse)",
+      "customerEmail": "alex@yandex.ru",
+      "status": "success",
+      "clientIp": "185.120.45.19",
+      "createdAt": "2026-10-06T15:22:53.059Z"
+    },
+    {
+      "id": "tx_9823411",
+      "userId": "usr_demo_002",
+      "merchantName": "Neon Store / ИП Иванов",
+      "type": "deposit",
+      "amount": 14900,
+      "netAmount": 14482.8,
+      "fee": 417.2,
+      "currency": "RUB",
+      "method": "card",
+      "description": "Оплата подписки Pro Max 12 мес.",
+      "customerEmail": "dmitry.pro@gmail.com",
+      "status": "success",
+      "clientIp": "94.25.180.12",
+      "createdAt": "2026-10-06T14:52:53.059Z"
+    },
+    {
+      "id": "tx_9823410",
+      "userId": "usr_demo_002",
+      "merchantName": "Neon Store / ИП Иванов",
+      "type": "deposit",
+      "amount": 2500,
+      "netAmount": 2475,
+      "fee": 25,
+      "currency": "RUB",
+      "method": "crypto",
+      "description": "Пополнение баланса аккаунта",
+      "customerEmail": "crypto_trader@proton.me",
+      "status": "pending",
+      "clientIp": "45.130.82.10",
+      "createdAt": "2026-10-06T13:37:53.059Z"
+    },
+    {
+      "id": "tx_9823409",
+      "userId": "usr_demo_002",
+      "merchantName": "Neon Store / ИП Иванов",
+      "type": "payout",
+      "amount": 50000,
+      "netAmount": 49100,
+      "fee": 900,
+      "currency": "RUB",
+      "method": "sbp_payout",
+      "description": "Выплата на расчетный счет Т-Банк",
+      "customerEmail": "merchant@store.ru",
+      "status": "success",
+      "clientIp": "185.120.45.19",
+      "createdAt": "2026-10-05T15:37:53.059Z"
+    }
+  ],
+  "auditLogs": [
+    {
+      "id": "log_1791369000476_492",
+      "type": "AUTH_SUCCESS",
+      "message": "Успешный вход: merchant@store.ru (merchant)",
+      "ip": "::1",
+      "timestamp": "2026-10-07T10:30:00.476Z"
+    },
+    {
+      "id": "log_01",
+      "type": "SECURITY",
+      "message": "Система запущена в защищенном режиме. Инициализирован крипто-модуль.",
+      "ip": "127.0.0.1",
+      "timestamp": "2026-10-06T15:37:53.059Z"
+    },
+    {
+      "id": "log_02",
+      "type": "ADMIN",
+      "message": "Базовые тарифы комиссий синхронизированы.",
+      "ip": "127.0.0.1",
+      "timestamp": "2026-10-06T15:37:53.059Z"
+    }
+  ]
+}
