@@ -115,11 +115,32 @@
   }
 
   async function drawQr() {
-    const canvas = $('qr');
-    const value = payload.gostQrString || gostString(bank(), tx());
-    if (window.QRCode) {
-      await QRCode.toCanvas(canvas, value, { width: 168, margin: 0, color: { dark: '#1c1915', light: '#ffffff' } });
+    const frame = document.querySelector('.qr-frame');
+    // Настоящий QR: сначала серверный SVG (работает без интернета и CDN), затем canvas-библиотека
+    if (payload && payload.qrSvg) {
+      if (frame) frame.innerHTML = '<div style="width:100%;height:100%">' + payload.qrSvg + '</div>';
+      return;
     }
+    const canvas = $('qr');
+    const value = (payload && payload.gostQrString) || gostString(bank(), tx());
+    if (window.QRCode && canvas) {
+      await QRCode.toCanvas(canvas, value, { width: 168, margin: 0, color: { dark: '#1c1915', light: '#ffffff' } });
+      return;
+    }
+    throw new Error('no qr renderer');
+  }
+
+  function renderCrypto() {
+    const c = (payload && payload.crypto) || {};
+    const usdtBox = $('crypto-qr-usdt'), tonBox = $('crypto-qr-ton');
+    if (usdtBox) usdtBox.innerHTML = c.tronQrSvg || '<span style="color:var(--faint);font-size:12px">QR недоступен</span>';
+    if (tonBox) tonBox.innerHTML = c.tonQrSvg || '<span style="color:var(--faint);font-size:12px">QR недоступен</span>';
+    const addrUsdt = $('crypto-usdt-address'), addrTon = $('crypto-ton-address');
+    if (addrUsdt) addrUsdt.textContent = c.usdtTrc20Address || 'адрес не настроен (укажите в кабинете → Реквизиты)';
+    if (addrTon) addrTon.textContent = c.tonAddress || 'адрес не настроен (укажите в кабинете → Реквизиты)';
+    const openTron = $('open-tron'), openTon = $('open-ton');
+    if (openTron && c.tronUri) { openTron.href = c.tronUri; openTron.style.display = ''; }
+    if (openTon && c.tonUri) { openTon.href = c.tonUri; openTon.style.display = ''; }
   }
 
   function renderDone() {

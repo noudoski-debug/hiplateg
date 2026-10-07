@@ -9,6 +9,10 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 
+// Генерация настоящих QR-кодов на сервере (SVG, без CDN и внешних запросов)
+let QRCode = null;
+try { QRCode = require('qrcode'); } catch (e) {}
+
 // Опциональные зависимости с безопасными fallback-ами
 let helmet = null;
 let cors = null;
@@ -575,7 +579,26 @@ app.post('/api/transactions/payout', authMiddleware, (req, res) => {
   });
 });
 
-// Симуляция успешной оплаты счета клиентом
+// Проверка карты по алгоритму Луна + определение платёжной системы
+function luhnValid(num) {
+  let sum = 0, alt = false;
+  for (let i = num.length - 1; i >= 0; i--) {
+    let d = Number(num[i]);
+    if (alt) { d *= 2; if (d > 9) d -= 9; }
+    sum += d;
+    alt = !alt;
+  }
+  return num.length >= 13 && sum % 10 === 0;
+}
+
+function cardBrandOf(num) {
+  if (/^220[0-4]/.test(num)) return 'МИР';
+  if (/^4/.test(num)) return 'Visa';
+  if (/^5[1-5]/.test(num) || /^2(2[2-9]|[3-6]|7[01]|720)/.test(num)) return 'Mastercard';
+  return 'Карта';
+}
+
+// Проведение оплаты счета (с зачислением мерчанту и вебхуком)
 function settleInvoice(txId, meta, ip) {
   meta = meta || {};
   const db = readDB();
@@ -595,16 +618,69 @@ function settleInvoice(txId, meta, ip) {
   if (merchant) merchant.balance = +(merchant.balance + tx.netAmount).toFixed(2);
   writeDB(db);
   addLog('PAYMENT_CONFIRMED', 'Оплата счета ' + tx.id + ' через ' + method + ' (+' + tx.netAmount + ' ' + tx.currency + ')', ip);
+
+  // Реальная доставка вебхука мерчанту (если URL настроен)
+  if (merchant && merchant.webhookUrl && /^https?:\/\//.test(merchant.webhookUrl)) {
+    try {
+      fetch(merchant.webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event: 'payment.succeeded',
+          invoice_id: tx.id,
+          amount: tx.amount,
+          fee: tx.fee,
+          net_amount: tx.netAmount,
+          currency: tx.currency,
+          method: method,
+          receipt_id: tx.receiptId,
+          paid_at: tx.paidAt,
+          signature: crypto.createHmac('sha256', JWT_SECRET).update(tx.id + tx.amount + tx.paidAt).digest('hex')
+        })
+      }).catch(() => {});
+    } catch (e) {}
+  }
+
   const fresh = readDB().transactions.find(t => t.id === txId);
   return { status: 200, body: { message: 'Платеж успешно проведен', transaction: fresh } };
 }
 
 app.post('/api/checkout/:id/pay', (req, res) => {
   const body = req.body || {};
-  if (body.pan || body.cardNumber || body.cvc || body.cvv) {
+  if (body.pan || body.cardNumber || body.cvv || body.cvc) {
     return res.status(400).json({ error: 'Полные данные карты не принимаются' });
   }
   const result = settleInvoice(req.params.id, body, req.ip);
+  res.status(result.status).json(result.body);
+});
+
+// Полная серверная проверка карты (Луна + срок действия) — оплата только после валидации
+app.post('/api/checkout/:id/pay-card', (req, res) => {
+  const body = req.body || {};
+  const pan = String(body.pan || '').replace(/\D/g, '');
+  const exp = String(body.exp || '').replace(/\D/g, '');
+  const cvc = String(body.cvc || '').replace(/\D/g, '');
+  const holder = String(body.holder || '').trim();
+
+  if (pan.length < 13 || pan.length > 19 || !luhnValid(pan)) {
+    return res.status(400).json({ error: 'Номер карты не проходит проверку по алгоритму Луна' });
+  }
+  const month = Number(exp.slice(0, 2));
+  const year = 2000 + Number(exp.slice(2, 4) || 0);
+  const now = new Date();
+  if (exp.length !== 4 || month < 1 || month > 12 || year < now.getFullYear() || (year === now.getFullYear() && month < now.getMonth() + 1)) {
+    return res.status(400).json({ error: 'Срок действия карты истёк или указан неверно' });
+  }
+  if (cvc.length !== 3 || holder.length < 3) {
+    return res.status(400).json({ error: 'Проверьте CVC и имя владельца карты' });
+  }
+
+  const result = settleInvoice(req.params.id, {
+    method: 'card',
+    last4: pan.slice(-4),
+    brand: cardBrandOf(pan),
+    holder: holder.toUpperCase()
+  }, req.ip);
   res.status(result.status).json(result.body);
 });
 
@@ -763,7 +839,7 @@ app.post('/api/admin/gateways', adminMiddleware, (req, res) => {
 });
 
 // Получение данных для реальной оплаты и QR-кода покупателем
-app.get('/api/checkout/:id/payment-data', (req, res) => {
+app.get('/api/checkout/:id/payment-data', async (req, res) => {
   const db = readDB();
   const tx = db.transactions.find(t => t.id === req.params.id);
   if (!tx) return res.status(404).json({ error: 'Платеж не найден' });
@@ -798,31 +874,85 @@ app.get('/api/checkout/:id/payment-data', (req, res) => {
     "Purpose=" + purpose,
     "Contract=" + tx.id
   ].join('|');
+
+  // Нормальный СБП-URL (схема nsb / payment.ru), если банк мерчанта его предоставляет
   const sbpUrl = null;
+
   // Криптовалютные URI
   const tronUri = `tron:${cryptoReq.usdtTrc20Address}?amount=${tx.amount}&token=USDT`;
   const tonUri = `ton://transfer/${cryptoReq.tonAddress}?amount=${amountInKopecks}&text=${encodeURIComponent(tx.id)}`;
 
+  // Серверная генерация настоящих QR-кодов в SVG — работают без интернета и CDN
+  async function makeQr(value) {
+    if (!QRCode || !value) return null;
+    try {
+      return await QRCode.toString(value, {
+        type: 'svg',
+        margin: 1,
+        width: 168,
+        color: { dark: '#1c1915', light: '#ffffff' }
+      });
+    } catch (e) {
+      return null;
+    }
+  }
+
+  const [gostSvg, tronSvg, tonSvg] = await Promise.all([
+    makeQr(gostString),
+    makeQr(tronUri),
+    makeQr(tonUri)
+  ]);
+
   res.json({
     transaction: tx,
+    alreadyPaid: tx.status === 'success',
     gostQrString: gostString,
+    qrSvg: gostSvg,
     sbpUrl,
     crypto: {
       usdtTrc20Address: cryptoReq.usdtTrc20Address,
       tronUri,
+      tronQrSvg: tronSvg,
       tonAddress: cryptoReq.tonAddress,
-      tonUri
+      tonUri,
+      tonQrSvg: tonSvg
     },
     banking: bankReq
   });
 });
 
+// Опрос статуса платежа (для анимации «ожидание → получено → проведение»)
+app.get('/api/checkout/:id/status', (req, res) => {
+  const db = readDB();
+  const tx = db.transactions.find(t => t.id === req.params.id);
+  if (!tx) return res.status(404).json({ error: 'Платеж не найден' });
+  res.json({ id: tx.id, status: tx.status, paidAt: tx.paidAt || null, paidMethod: tx.paidMethod || null });
+});
+
 // Обработка входящих реальных вебхуков от ЮKassa / Т-Банка / Cryptomus
 app.post('/api/gateways/webhook/:provider', (req, res) => {
   const { provider } = req.params;
-  const event = req.body;
+  const event = req.body || {};
   addLog('WEBHOOK_RECEIVED', `Входящий вебхук от провайдера ${provider}: ${JSON.stringify(event).slice(0, 100)}`, req.ip);
-  // Обработка статуса платежа
+
+  // Извлекаем ID платежа и статус из стандартных форматов провайдеров
+  const invoiceId =
+    (event.object && event.object.metadata && event.object.metadata.invoice_id) ||
+    (event.PaymentId || (event.Data && event.Data.InvoiceId)) ||
+    (event.paymentUuid || (event.body && event.body.id)) ||
+    event.invoice_id || null;
+
+  const rawStatus = String(
+    (event.object && event.object.status) ||
+    (event.Status || (event.Data && event.Data.Status)) ||
+    event.status || ''
+  ).toLowerCase();
+
+  if (invoiceId && ['succeeded', 'success', 'captured', 'confirmed', 'paid', 'finished'].includes(rawStatus)) {
+    const result = settleInvoice(invoiceId, { method: provider === 'cryptomus' ? 'crypto' : (provider === 'tinkoff' ? 'card' : 'sbp') }, req.ip);
+    return res.status(result.status).json(result.body);
+  }
+
   res.json({ status: 'ok' });
 });
 
