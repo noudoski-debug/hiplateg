@@ -52,6 +52,7 @@
             <button class="method" id="tab-sbp" type="button" role="tab" aria-pressed="true">СБП и QR</button>
             <button class="method" id="tab-card" type="button" role="tab" aria-pressed="false">Карта</button>
             <button class="method" id="tab-bank" type="button" role="tab" aria-pressed="false">Реквизиты</button>
+            <button class="method" id="tab-crypto" type="button" role="tab" aria-pressed="false">Крипто</button>
           </div>
           <div class="panel" id="panel-sbp">
             <div class="qr-wrap">
@@ -89,6 +90,35 @@
               <button class="text-btn" id="copy-reqs" type="button">Скопировать реквизиты</button>
               <button class="text-btn" id="print-slip" type="button">Печать</button>
             </div>
+          </div>
+          <div class="panel" id="panel-crypto" hidden>
+            <h2>Оплата криптовалютой</h2>
+            <p class="lede">USDT (TRC-20) или TON. Отсканируйте адрес кошельком — сумма подставится из счёта.</p>
+            <div class="qr-wrap">
+              <div class="qr-frame"><div id="crypto-qr-usdt" aria-label="QR USDT TRC-20"></div></div>
+              <div>
+                <h3 style="margin:0 0 4px;font-size:15px">USDT · TRC-20</h3>
+                <p class="mono" id="crypto-usdt-address" style="word-break:break-all;margin:0;font-size:12px;color:var(--muted)">—</p>
+                <div class="actions">
+                  <button class="text-btn" id="copy-usdt" type="button">Скопировать адрес</button>
+                  <a class="text-btn" id="open-tron" href="#" style="display:none">Открыть кошелек</a>
+                </div>
+              </div>
+            </div>
+            <hr style="border:0;height:1px;background:var(--line);margin:18px 0">
+            <div class="qr-wrap">
+              <div class="qr-frame"><div id="crypto-qr-ton" aria-label="QR TON"></div></div>
+              <div>
+                <h3 style="margin:0 0 4px;font-size:15px">TON</h3>
+                <p class="mono" id="crypto-ton-address" style="word-break:break-all;margin:0;font-size:12px;color:var(--muted)">—</p>
+                <div class="actions">
+                  <button class="text-btn" id="copy-ton" type="button">Скопировать адрес</button>
+                  <a class="text-btn" id="open-ton" href="#" style="display:none">Открыть кошелек</a>
+                </div>
+              </div>
+            </div>
+            <button class="btn secondary" id="confirm-crypto" type="button" style="margin-top:18px">Я отправил перевод</button>
+            <p class="hint">После отправки нажмите кнопку — магазин отметит счёт как ожидающий подтверждения сети.</p>
           </div>
           <p class="status-line" id="status" role="status"></p>
         </section>
